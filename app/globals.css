@@ -239,6 +239,11 @@ a:focus-visible {
   gap: 0.65rem;
 }
 
+.reader-controls-top {
+  justify-content: flex-end;
+  padding-block: 1rem;
+}
+
 .nav-button {
   display: inline-flex;
   min-height: 2.8rem;

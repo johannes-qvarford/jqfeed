@@ -4,7 +4,7 @@ import { sanitizeEntryHtml } from "./content";
 import type { FeedDefinition, FeedItem, NormalizedEntry, TransformedEntry } from "./types";
 
 const REQUEST_TIMEOUT_MS = 15_000;
-const USER_AGENT = "jqfeed/1.0 (+https://github.com/)";
+const USER_AGENT = "jqfeed/1.0";
 
 type Fetcher = typeof fetch;
 

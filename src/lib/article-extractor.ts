@@ -1,6 +1,6 @@
 import { Readability } from "@mozilla/readability";
 import { JSDOM } from "jsdom";
-import type { FeedTransformer } from "./types";
+import type { FeedItem, FeedTransformer } from "./types";
 
 export function extractMainArticle(html: string, pageUrl: string) {
   const dom = new JSDOM(html, { url: pageUrl });
@@ -20,13 +20,19 @@ export function extractMainArticle(html: string, pageUrl: string) {
   }
 }
 
-export function readabilityTransformer(options: { preferArticlePage?: boolean } = {}): FeedTransformer {
+export function readabilityTransformer(
+  options: { preferArticlePage?: boolean | ((item: FeedItem) => boolean) } = {},
+): FeedTransformer {
   return async (item, context) => {
     const feedContent =
       item.contentEncoded ?? item.content ?? item.description ?? item.summary ?? "";
     const link = item.link?.trim();
+    const preferArticlePage =
+      typeof options.preferArticlePage === "function"
+        ? options.preferArticlePage(item)
+        : options.preferArticlePage === true;
 
-    if (options.preferArticlePage && link) {
+    if (preferArticlePage && link) {
       try {
         const page = await context.fetchArticlePage(link);
         const article = extractMainArticle(page.html, page.finalUrl);

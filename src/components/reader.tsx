@@ -7,7 +7,51 @@ import type { NormalizedEntry } from "../lib/types";
 const SWIPE_DISTANCE_PX = 70;
 const SWIPE_MAX_DURATION_MS = 500;
 
-type TouchOrigin = { x: number; y: number; at: number };
+type SwipeZone = "above" | "content" | "below";
+type TouchOrigin = { x: number; y: number; at: number; zone: SwipeZone | null };
+
+type EntryNavigationProps = {
+  label: string;
+  className: string;
+  currentIndex: number;
+  entryCount: number;
+  onNewer: () => void;
+  onOlder: () => void;
+};
+
+function EntryNavigation({
+  label,
+  className,
+  currentIndex,
+  entryCount,
+  onNewer,
+  onOlder,
+}: EntryNavigationProps) {
+  return (
+    <nav className={className} aria-label={label}>
+      <button
+        className="nav-button"
+        type="button"
+        aria-label="Newer entry"
+        aria-keyshortcuts="ArrowUp"
+        disabled={currentIndex === 0}
+        onClick={onNewer}
+      >
+        <span aria-hidden="true">↑</span> Newer
+      </button>
+      <button
+        className="nav-button"
+        type="button"
+        aria-label="Older entry"
+        aria-keyshortcuts="ArrowDown"
+        disabled={currentIndex === entryCount - 1}
+        onClick={onOlder}
+      >
+        Older <span aria-hidden="true">↓</span>
+      </button>
+    </nav>
+  );
+}
 
 function formatDate(value: string | null): string {
   if (!value) return "Date unavailable";
@@ -29,7 +73,16 @@ function isTypingTarget(target: EventTarget | null): boolean {
 export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const touchOrigin = useRef<TouchOrigin | null>(null);
+  const contentPanelRef = useRef<HTMLDivElement | null>(null);
   const currentEntry = entries[currentIndex];
+
+  const getSwipeZone = (y: number): SwipeZone | null => {
+    const bounds = contentPanelRef.current?.getBoundingClientRect();
+    if (!bounds) return null;
+    if (y < bounds.top) return "above";
+    if (y > bounds.bottom) return "below";
+    return "content";
+  };
 
   const goTo = useCallback(
     (index: number) => {
@@ -68,10 +121,10 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
-      if (event.key === "ArrowUp" && currentIndex < entries.length - 1) {
+      if (event.key === "ArrowDown" && currentIndex < entries.length - 1) {
         event.preventDefault();
         goOlder();
-      } else if (event.key === "ArrowDown" && currentIndex > 0) {
+      } else if (event.key === "ArrowUp" && currentIndex > 0) {
         event.preventDefault();
         goNewer();
       }
@@ -84,7 +137,12 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   const onTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
     const touch = event.touches[0];
     if (!touch) return;
-    touchOrigin.current = { x: touch.clientX, y: touch.clientY, at: Date.now() };
+    touchOrigin.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      at: Date.now(),
+      zone: getSwipeZone(touch.clientY),
+    };
   };
 
   const onTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
@@ -92,6 +150,15 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
     const touch = event.changedTouches[0];
     touchOrigin.current = null;
     if (!start || !touch) return;
+
+    const endZone = getSwipeZone(touch.clientY);
+    if (
+      !start.zone ||
+      start.zone === "content" ||
+      start.zone !== endZone
+    ) {
+      return;
+    }
 
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
@@ -146,6 +213,15 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
         <span>RSS · Atom</span>
       </header>
 
+      <EntryNavigation
+        label="Top entry navigation"
+        className="reader-controls reader-controls-top"
+        currentIndex={currentIndex}
+        entryCount={entries.length}
+        onNewer={goNewer}
+        onOlder={goOlder}
+      />
+
       <div className="reader-main">
         <article className="entry-card" key={currentEntry.id} aria-live="polite">
           <div className="entry-byline">
@@ -159,7 +235,7 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
           <a className="source-link" href={currentEntry.url} target="_blank" rel="noreferrer">
             Read at source <span aria-hidden="true">↗</span>
           </a>
-          <div className="article-panel">
+          <div className="article-panel" ref={contentPanelRef}>
             <div
               className="article-content"
               dangerouslySetInnerHTML={{ __html: currentEntry.contentHtml }}
@@ -172,28 +248,14 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
         <span className="position-label" aria-live="polite">
           {currentIndex + 1} of {entries.length}
         </span>
-        <nav className="reader-controls" aria-label="Entry navigation">
-          <button
-            className="nav-button"
-            type="button"
-            aria-label="Newer entry"
-            aria-keyshortcuts="ArrowDown"
-            disabled={currentIndex === 0}
-            onClick={goNewer}
-          >
-            <span aria-hidden="true">↓</span> Newer
-          </button>
-          <button
-            className="nav-button"
-            type="button"
-            aria-label="Older entry"
-            aria-keyshortcuts="ArrowUp"
-            disabled={currentIndex === entries.length - 1}
-            onClick={goOlder}
-          >
-            Older <span aria-hidden="true">↑</span>
-          </button>
-        </nav>
+        <EntryNavigation
+          label="Bottom entry navigation"
+          className="reader-controls"
+          currentIndex={currentIndex}
+          entryCount={entries.length}
+          onNewer={goNewer}
+          onOlder={goOlder}
+        />
       </footer>
     </main>
   );
