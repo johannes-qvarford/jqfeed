@@ -28,6 +28,8 @@ Feed IDs should be stable and unique. Entries are deduplicated within each feed 
 
 Requires Node.js 22.12 or newer. The Pages workflow uses Node.js 24.
 
+See [AGENTS.md](AGENTS.md) for repository layout and development guidance.
+
 ```sh
 npm ci
 npm run dev
