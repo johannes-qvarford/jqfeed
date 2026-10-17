@@ -16,8 +16,10 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
+      - name: Set default Git branch
+        run: git config --global init.defaultBranch main
       - name: Check out source
         uses: actions/checkout@v7
       - name: Set up Node.js
@@ -53,13 +55,16 @@ jobs:
   deploy:
     if: github.event_name != 'push' || github.ref_name == github.event.repository.default_branch
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      # deploy-pages@v5.0.1 still emits DEP0040 from its bundled artifact dependency.
+      NODE_OPTIONS: --disable-warning=DEP0040
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
