@@ -44,8 +44,10 @@ describe("Reader", () => {
     expect(topNavigation.getByRole("button", { name: "Newer entry" })).toBeDisabled();
     fireEvent.click(topNavigation.getByRole("button", { name: "Older entry" }));
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "ArrowDown" });
+    fireEvent.keyDown(window, { key: "ArrowUp" });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
   });
 
   it("uses a quick upward swipe for older and a downward swipe for newer", () => {
@@ -78,7 +80,7 @@ describe("Reader", () => {
     fireEvent.click(bottomNavigation.getByRole("button", { name: "Older entry" }));
     expect(bottomNavigation.getByRole("button", { name: "Older entry" })).toBeDisabled();
     fireEvent.keyDown(window, { key: "ArrowUp" });
-    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
     vi.useRealTimers();
   });
 
