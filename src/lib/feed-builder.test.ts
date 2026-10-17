@@ -36,23 +36,54 @@ function fetcherFor(xml: string): typeof fetch {
 }
 
 describe("buildEntries", () => {
-  it("parses RSS, deduplicates within a feed, sorts newest first, and puts undated entries last", async () => {
-    const entries = await buildEntries([feed()], { fetcher: fetcherFor(rssXml) });
+  it("parses RSS, deduplicates within a feed, sorts newest first, and excludes undated entries", async () => {
+    const entries = await buildEntries([feed()], {
+      fetcher: fetcherFor(rssXml),
+      now: new Date("2024-01-04T00:00:00.000Z"),
+    });
 
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(2);
     expect(entries.map((entry) => entry.title)).toEqual([
       "Latest item",
       "Older item",
-      "Undated item",
     ]);
     expect(entries[0].publishedAt).toBe("2024-01-03T00:00:00.000Z");
-    expect(entries[2].publishedAt).toBeNull();
     expect(entries[0].contentHtml).toContain("Latest body");
+  });
+
+  it("keeps entries at or after the seven-day cutoff and filters before transformation", async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+      <rss version="2.0"><channel><title>Example</title><link>https://example.com</link><description>Example feed</description>
+        <item><title>At cutoff</title><link>https://example.com/cutoff</link><guid>cutoff</guid><pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate><description><![CDATA[<p>At cutoff</p>]]></description></item>
+        <item><title>Too old</title><link>https://example.com/old</link><guid>old</guid><pubDate>Sun, 31 Dec 2023 23:59:59 GMT</pubDate><description><![CDATA[<p>Too old</p>]]></description></item>
+        <item><title>Recent</title><link>https://example.com/recent</link><guid>recent</guid><pubDate>Fri, 05 Jan 2024 12:00:00 GMT</pubDate><description><![CDATA[<p>Recent</p>]]></description></item>
+        <item><title>Undated</title><link>https://example.com/undated</link><guid>undated</guid><description><![CDATA[<p>Undated</p>]]></description></item>
+        <item><title>Invalid date</title><link>https://example.com/invalid</link><guid>invalid</guid><pubDate>not a date</pubDate><description><![CDATA[<p>Invalid</p>]]></description></item>
+        <item><title>Future</title><link>https://example.com/future</link><guid>future</guid><pubDate>Tue, 09 Jan 2024 00:00:00 GMT</pubDate><description><![CDATA[<p>Future</p>]]></description></item>
+      </channel></rss>`;
+    const transform = vi.fn(rawTransformer);
+    const entries = await buildEntries([feed("https://example.com/feed.xml", transform)], {
+      fetcher: fetcherFor(xml),
+      now: new Date("2024-01-08T00:00:00.000Z"),
+    });
+
+    expect(entries.map((entry) => entry.title)).toEqual([
+      "Future",
+      "Recent",
+      "At cutoff",
+    ]);
+    expect(transform).toHaveBeenCalledTimes(3);
+    expect(transform.mock.calls.map(([item]) => item.title)).toEqual([
+      "At cutoff",
+      "Recent",
+      "Future",
+    ]);
   });
 
   it("parses Atom entries and uses updated as their publication date", async () => {
     const entries = await buildEntries([feed("https://atom.example/feed", rawTransformer)], {
       fetcher: fetcherFor(atomXml),
+      now: new Date("2024-04-06T10:30:00.000Z"),
     });
 
     expect(entries).toHaveLength(1);
@@ -86,7 +117,7 @@ describe("buildEntries", () => {
     }) as typeof fetch;
     const entries = await buildEntries(
       [feed("https://example.com/feed.xml", readabilityTransformer())],
-      { fetcher },
+      { fetcher, now: new Date("2024-01-02T00:00:00.000Z") },
     );
 
     expect(calls).toEqual(["https://example.com/feed.xml", "https://example.com/story"]);
@@ -97,7 +128,7 @@ describe("buildEntries", () => {
 
   it("falls back to feed content if preferred article-page extraction fails", async () => {
     const xml = `<rss version="2.0"><channel><title>Example</title><link>https://example.com</link><description>Feed</description>
-      <item><title>Story</title><link>https://example.com/story</link><guid>story</guid><content:encoded><![CDATA[<p>Feed body remains available</p>]]></content:encoded></item>
+      <item><title>Story</title><link>https://example.com/story</link><guid>story</guid><pubDate>Mon, 01 Jan 2024 00:00:00 GMT</pubDate><content:encoded><![CDATA[<p>Feed body remains available</p>]]></content:encoded></item>
     </channel></rss>`;
     const fetcher: typeof fetch = (async (input: RequestInfo | URL) =>
       String(input).endsWith("feed.xml")
@@ -105,7 +136,7 @@ describe("buildEntries", () => {
         : new Response("Unavailable", { status: 503 })) as typeof fetch;
     const entries = await buildEntries(
       [feed("https://example.com/feed.xml", readabilityTransformer({ preferArticlePage: true }))],
-      { fetcher },
+      { fetcher, now: new Date("2024-01-02T00:00:00.000Z") },
     );
 
     expect(entries[0].contentHtml).toContain("Feed body remains available");
@@ -124,6 +155,7 @@ describe("buildEntries", () => {
 
     await expect(buildEntries([feed("https://example.com/feed.xml", transform)], {
       fetcher: fetcherFor(rssXml),
+      now: new Date("2024-01-04T00:00:00.000Z"),
     })).rejects.toThrow(/extractor failed/);
   });
 });

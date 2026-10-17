@@ -4,6 +4,7 @@ import { sanitizeEntryHtml } from "./content";
 import type { FeedDefinition, FeedItem, NormalizedEntry, TransformedEntry } from "./types";
 
 const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_ENTRY_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const USER_AGENT = "jqfeed/1.0";
 
 type Fetcher = typeof fetch;
@@ -42,6 +43,14 @@ function normalizeDate(value: string | null | undefined): string | null {
   if (!value) return null;
   const timestamp = Date.parse(value);
   return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function isWithinEntryAge(item: FeedItem, cutoffTimestamp: number): boolean {
+  const publishedAt = item.isoDate ?? item.pubDate;
+  if (!publishedAt) return false;
+
+  const timestamp = Date.parse(publishedAt);
+  return Number.isFinite(timestamp) && timestamp >= cutoffTimestamp;
 }
 
 function feedItemIdentity(feedId: string, item: FeedItem): string {
@@ -100,8 +109,9 @@ function normalizeEntry(
 
 export async function buildEntries(
   feeds: FeedDefinition[],
-  options: { fetcher?: Fetcher } = {},
+  options: { fetcher?: Fetcher; now?: Date } = {},
 ): Promise<NormalizedEntry[]> {
+  const cutoffTimestamp = (options.now?.getTime() ?? Date.now()) - MAX_ENTRY_AGE_MS;
   const fetcher = options.fetcher ?? fetch;
   const feedIds = new Set<string>();
   for (const feed of feeds) {
@@ -124,6 +134,8 @@ export async function buildEntries(
       const seen = new Set<string>();
 
       for (const item of parsed.items ?? []) {
+        if (!isWithinEntryAge(item, cutoffTimestamp)) continue;
+
         const identity = feedItemIdentity(feed.id, item);
         const key = stableKey(feed.id, item);
         if (seen.has(key)) continue;
