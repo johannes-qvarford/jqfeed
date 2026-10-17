@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Reader } from "./reader";
 import type { NormalizedEntry } from "../lib/types";
@@ -36,10 +36,13 @@ function touch(x: number, y: number) {
 describe("Reader", () => {
   it("starts at the latest entry and navigates with buttons and keyboard arrows", () => {
     render(<Reader entries={entries} />);
+    const topNavigation = within(
+      screen.getByRole("navigation", { name: "Top entry navigation" }),
+    );
 
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Newer entry" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Older entry" }));
+    expect(topNavigation.getByRole("button", { name: "Newer entry" })).toBeDisabled();
+    fireEvent.click(topNavigation.getByRole("button", { name: "Older entry" }));
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
@@ -62,6 +65,9 @@ describe("Reader", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
     render(<Reader entries={entries} />);
+    const bottomNavigation = within(
+      screen.getByRole("navigation", { name: "Bottom entry navigation" }),
+    );
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
     fireEvent.touchStart(reader, { touches: touch(120, 260) });
@@ -69,8 +75,8 @@ describe("Reader", () => {
     fireEvent.touchEnd(reader, { changedTouches: touch(120, 160) });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Older entry" }));
-    expect(screen.getByRole("button", { name: "Older entry" })).toBeDisabled();
+    fireEvent.click(bottomNavigation.getByRole("button", { name: "Older entry" }));
+    expect(bottomNavigation.getByRole("button", { name: "Older entry" })).toBeDisabled();
     fireEvent.keyDown(window, { key: "ArrowUp" });
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
     vi.useRealTimers();
