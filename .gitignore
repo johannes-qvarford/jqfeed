@@ -1,0 +1,8 @@
+.next/
+out/
+node_modules/
+.generated/
+.npm-cache/
+coverage/
+*.tsbuildinfo
+.DS_Store
