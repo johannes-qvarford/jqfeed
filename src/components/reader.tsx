@@ -43,7 +43,7 @@ function EntryNavigation({
         className="nav-button"
         type="button"
         aria-label="Newer entry"
-        aria-keyshortcuts="ArrowUp"
+        aria-keyshortcuts="ArrowRight"
         disabled={currentIndex === 0}
         onClick={onNewer}
       >
@@ -53,7 +53,7 @@ function EntryNavigation({
         className="nav-button"
         type="button"
         aria-label="Older entry"
-        aria-keyshortcuts="ArrowDown"
+        aria-keyshortcuts="ArrowLeft"
         disabled={currentIndex === entryCount - 1}
         onClick={onOlder}
       >
@@ -215,10 +215,10 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isTypingTarget(event.target)) return;
-      if (event.key === "ArrowDown" && currentIndex < entries.length - 1) {
+        if (event.key === "ArrowLeft" && currentIndex < entries.length - 1) {
         event.preventDefault();
         goOlder();
-      } else if (event.key === "ArrowUp" && currentIndex > 0) {
+        } else if (event.key === "ArrowRight" && currentIndex > 0) {
         event.preventDefault();
         goNewer();
       }

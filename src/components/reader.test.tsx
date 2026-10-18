@@ -35,7 +35,7 @@ function touch(x: number, y: number) {
 }
 
 describe("Reader", () => {
-  it("starts at the latest entry and keeps top navigation in the header", () => {
+  it("uses left and right keyboard shortcuts to match the navigation controls", () => {
     render(<Reader entries={entries} />);
     const topNavigationElement = screen.getByRole("navigation", {
       name: "Top entry navigation",
@@ -45,12 +45,24 @@ describe("Reader", () => {
     expect(topNavigationElement.parentElement?.tagName).toBe("HEADER");
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
     expect(topNavigation.getByRole("button", { name: "Newer entry" })).toBeDisabled();
+    expect(topNavigation.getByRole("button", { name: "Newer entry" })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "ArrowRight",
+    );
+    expect(topNavigation.getByRole("button", { name: "Older entry" })).toHaveAttribute(
+      "aria-keyshortcuts",
+      "ArrowLeft",
+    );
     expect(topNavigation.getByRole("button", { name: "Older entry" })).toHaveTextContent("← Older");
 
     fireEvent.click(topNavigation.getByRole("button", { name: "Older entry" }));
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
-    fireEvent.keyDown(window, { key: "ArrowUp" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowUp" });
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
   });
