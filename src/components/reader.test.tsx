@@ -27,6 +27,7 @@ const entries: NormalizedEntry[] = [
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
+  vi.useRealTimers();
 });
 
 function touch(x: number, y: number) {
@@ -34,14 +35,18 @@ function touch(x: number, y: number) {
 }
 
 describe("Reader", () => {
-  it("starts at the latest entry and navigates with buttons and keyboard arrows", () => {
+  it("starts at the latest entry and keeps top navigation in the header", () => {
     render(<Reader entries={entries} />);
-    const topNavigation = within(
-      screen.getByRole("navigation", { name: "Top entry navigation" }),
-    );
+    const topNavigationElement = screen.getByRole("navigation", {
+      name: "Top entry navigation",
+    });
+    const topNavigation = within(topNavigationElement);
 
+    expect(topNavigationElement.parentElement?.tagName).toBe("HEADER");
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
     expect(topNavigation.getByRole("button", { name: "Newer entry" })).toBeDisabled();
+    expect(topNavigation.getByRole("button", { name: "Older entry" })).toHaveTextContent("← Older");
+
     fireEvent.click(topNavigation.getByRole("button", { name: "Older entry" }));
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "ArrowUp" });
@@ -50,38 +55,109 @@ describe("Reader", () => {
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
   });
 
-  it("uses a quick upward swipe for older and a downward swipe for newer", () => {
+  it("shows swipe feedback before the navigation threshold and returns on a short drag", () => {
+    const { container } = render(<Reader entries={entries} />);
+    const articleContent = screen.getByText("Newest body");
+    const reader = screen.getByRole("main", { name: "Feed reader" });
+
+    fireEvent.touchStart(articleContent, { touches: touch(220, 240) });
+    fireEvent.touchMove(articleContent, { touches: touch(205, 240) });
+
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    expect(container.querySelector(".swipe-cue")).toHaveTextContent("Older");
+    expect(screen.getByRole("article").style.transform).toBe("translate3d(-6.75px, 0, 0)");
+
+    fireEvent.touchEnd(reader, { changedTouches: touch(205, 240) });
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    expect(container.querySelector(".swipe-cue")).not.toBeInTheDocument();
+    expect(screen.getByRole("article").style.transform).toBe("translate3d(0px, 0, 0)");
+  });
+
+  it("uses left for older and right for newer from different reader areas", () => {
+    render(<Reader entries={entries} />);
+    const reader = screen.getByRole("main", { name: "Feed reader" });
+    const brand = screen.getByText("jqfeed");
+    const articleBody = screen.getByText("Newest body");
+
+    fireEvent.touchStart(articleBody, { touches: touch(220, 240) });
+    fireEvent.touchMove(articleBody, { touches: touch(190, 240) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(130, 240) });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+
+    fireEvent.touchStart(brand, { touches: touch(80, 30) });
+    fireEvent.touchMove(brand, { touches: touch(110, 30) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(170, 30) });
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+
+    const positionLabel = screen.getByText("1 of 2");
+    fireEvent.touchStart(positionLabel, { touches: touch(220, 520) });
+    fireEvent.touchMove(positionLabel, { touches: touch(190, 520) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(130, 520) });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+  });
+
+  it("leaves vertical movement for page scrolling and ignores slow swipes", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
     render(<Reader entries={entries} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
-    fireEvent.touchStart(reader, { touches: touch(120, 260) });
-    fireEvent.touchEnd(reader, { changedTouches: touch(118, 170) });
-    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(218, 160) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(218, 160) });
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
 
-    fireEvent.touchStart(reader, { touches: touch(118, 170) });
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(160, 260) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(160, 260) });
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(130, 260) });
+    vi.advanceTimersByTime(600);
     fireEvent.touchEnd(reader, { changedTouches: touch(120, 260) });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
   });
 
-  it("leaves slow vertical movement for scrolling and respects navigation bounds", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
-    render(<Reader entries={entries} />);
-    const bottomNavigation = within(
-      screen.getByRole("navigation", { name: "Bottom entry navigation" }),
-    );
+  it("clears swipe feedback when a touch is canceled", () => {
+    const { container } = render(<Reader entries={entries} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(190, 260) });
+    expect(container.querySelector(".swipe-cue")).toBeInTheDocument();
+
+    fireEvent.touchCancel(reader);
+    expect(container.querySelector(".swipe-cue")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+  });
+
+  it("respects entry bounds and suppresses the click after a completed swipe", () => {
+    render(<Reader entries={entries} />);
+    const reader = screen.getByRole("main", { name: "Feed reader" });
+
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(130, 260) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(120, 260) });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+
+    const clickWasAllowed = fireEvent.click(reader, { detail: 1 });
+    expect(clickWasAllowed).toBe(false);
+
+    fireEvent.touchStart(reader, { touches: touch(220, 260) });
+    fireEvent.touchMove(reader, { touches: touch(130, 260) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(120, 260) });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+
     fireEvent.touchStart(reader, { touches: touch(120, 260) });
-    vi.advanceTimersByTime(600);
-    fireEvent.touchEnd(reader, { changedTouches: touch(120, 160) });
+    fireEvent.touchMove(reader, { touches: touch(210, 260) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(220, 260) });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
 
-    fireEvent.click(bottomNavigation.getByRole("button", { name: "Older entry" }));
-    expect(bottomNavigation.getByRole("button", { name: "Older entry" })).toBeDisabled();
-    fireEvent.keyDown(window, { key: "ArrowUp" });
+    fireEvent.touchStart(reader, { touches: touch(120, 260) });
+    fireEvent.touchMove(reader, { touches: touch(210, 260) });
+    fireEvent.touchEnd(reader, { changedTouches: touch(220, 260) });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
-    vi.useRealTimers();
   });
 
   it("renders an empty state when there are no configured feeds", () => {

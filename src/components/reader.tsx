@@ -1,14 +1,24 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { TouchEvent as ReactTouchEvent } from "react";
+import type {
+  MouseEvent as ReactMouseEvent,
+  TouchEvent as ReactTouchEvent,
+} from "react";
 import type { NormalizedEntry } from "../lib/types";
 
 const SWIPE_DISTANCE_PX = 70;
 const SWIPE_MAX_DURATION_MS = 500;
+const SWIPE_INTENT_DISTANCE_PX = 4;
+const SWIPE_MAX_OFFSET_PX = 48;
 
-type SwipeZone = "above" | "content" | "below";
-type TouchOrigin = { x: number; y: number; at: number; zone: SwipeZone | null };
+type SwipeDirection = "newer" | "older";
+type TouchOrigin = { x: number; y: number; at: number };
+type SwipePreview = {
+  direction: SwipeDirection;
+  offset: number;
+  progress: number;
+};
 
 type EntryNavigationProps = {
   label: string;
@@ -37,7 +47,7 @@ function EntryNavigation({
         disabled={currentIndex === 0}
         onClick={onNewer}
       >
-        <span aria-hidden="true">↑</span> Newer
+        Newer <span aria-hidden="true">→</span>
       </button>
       <button
         className="nav-button"
@@ -47,7 +57,7 @@ function EntryNavigation({
         disabled={currentIndex === entryCount - 1}
         onClick={onOlder}
       >
-        Older <span aria-hidden="true">↓</span>
+        <span aria-hidden="true">←</span> Older
       </button>
     </nav>
   );
@@ -72,17 +82,10 @@ function isTypingTarget(target: EventTarget | null): boolean {
 
 export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [swipePreview, setSwipePreview] = useState<SwipePreview | null>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
-  const contentPanelRef = useRef<HTMLDivElement | null>(null);
+  const suppressClickUntil = useRef(0);
   const currentEntry = entries[currentIndex];
-
-  const getSwipeZone = (y: number): SwipeZone | null => {
-    const bounds = contentPanelRef.current?.getBoundingClientRect();
-    if (!bounds) return null;
-    if (y < bounds.top) return "above";
-    if (y > bounds.bottom) return "below";
-    return "content";
-  };
 
   const goTo = useCallback(
     (index: number) => {
@@ -97,6 +100,97 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
 
   const goOlder = useCallback(() => goTo(currentIndex + 1), [currentIndex, goTo]);
   const goNewer = useCallback(() => goTo(currentIndex - 1), [currentIndex, goTo]);
+
+  const onTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
+    suppressClickUntil.current = 0;
+    setSwipePreview(null);
+    if (event.touches.length !== 1) {
+      touchOrigin.current = null;
+      return;
+    }
+
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchOrigin.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      at: Date.now(),
+    };
+  };
+
+  const onTouchMove = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchOrigin.current;
+    const touch = event.touches[0];
+    if (!start || !touch || event.touches.length !== 1) {
+      setSwipePreview(null);
+      return;
+    }
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (
+      Math.abs(deltaX) < SWIPE_INTENT_DISTANCE_PX ||
+      Math.abs(deltaX) <= Math.abs(deltaY)
+    ) {
+      setSwipePreview(null);
+      return;
+    }
+
+    const direction: SwipeDirection = deltaX < 0 ? "older" : "newer";
+    const canNavigate = direction === "older"
+      ? currentIndex < entries.length - 1
+      : currentIndex > 0;
+    if (!canNavigate) {
+      setSwipePreview(null);
+      return;
+    }
+
+    const progress = Math.min(Math.abs(deltaX) / SWIPE_DISTANCE_PX, 1);
+    const offset = Math.sign(deltaX) * Math.min(
+      Math.abs(deltaX) * 0.45,
+      SWIPE_MAX_OFFSET_PX,
+    );
+    setSwipePreview({ direction, offset, progress });
+  };
+
+  const onTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
+    const start = touchOrigin.current;
+    const touch = event.changedTouches[0];
+    touchOrigin.current = null;
+    setSwipePreview(null);
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const elapsed = Date.now() - start.at;
+    if (
+      Math.abs(deltaX) < SWIPE_DISTANCE_PX ||
+      Math.abs(deltaX) <= Math.abs(deltaY) ||
+      elapsed > SWIPE_MAX_DURATION_MS
+    ) {
+      return;
+    }
+
+    if (deltaX < 0 && currentIndex < entries.length - 1) {
+      suppressClickUntil.current = Date.now() + SWIPE_MAX_DURATION_MS;
+      goOlder();
+    } else if (deltaX > 0 && currentIndex > 0) {
+      suppressClickUntil.current = Date.now() + SWIPE_MAX_DURATION_MS;
+      goNewer();
+    }
+  };
+
+  const onTouchCancel = () => {
+    touchOrigin.current = null;
+    setSwipePreview(null);
+  };
+
+  const onClickCapture = (event: ReactMouseEvent<HTMLElement>) => {
+    if (event.detail === 0 || Date.now() > suppressClickUntil.current) return;
+    suppressClickUntil.current = 0;
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   useEffect(() => {
     const syncFromLocation = () => {
@@ -134,57 +228,22 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [currentIndex, entries.length, goNewer, goOlder]);
 
-  const onTouchStart = (event: ReactTouchEvent<HTMLElement>) => {
-    const touch = event.touches[0];
-    if (!touch) return;
-    touchOrigin.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      at: Date.now(),
-      zone: getSwipeZone(touch.clientY),
-    };
-  };
-
-  const onTouchEnd = (event: ReactTouchEvent<HTMLElement>) => {
-    const start = touchOrigin.current;
-    const touch = event.changedTouches[0];
-    touchOrigin.current = null;
-    if (!start || !touch) return;
-
-    const endZone = getSwipeZone(touch.clientY);
-    if (
-      !start.zone ||
-      start.zone === "content" ||
-      start.zone !== endZone
-    ) {
-      return;
-    }
-
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    const elapsed = Date.now() - start.at;
-    if (
-      Math.abs(deltaY) < SWIPE_DISTANCE_PX ||
-      Math.abs(deltaX) > Math.abs(deltaY) * 0.8 ||
-      elapsed > SWIPE_MAX_DURATION_MS
-    ) {
-      return;
-    }
-
-    if (deltaY < 0) goOlder();
-    else goNewer();
-  };
-
-  const onTouchCancel = () => {
-    touchOrigin.current = null;
-  };
-
   if (!currentEntry) {
     return (
-      <main className="reader-shell" aria-label="Feed reader">
+      <main
+        className="reader-shell"
+        aria-label="Feed reader"
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
+        onClickCapture={onClickCapture}
+      >
         <header className="reader-header">
-          <span className="brand">jqfeed</span>
-          <span>RSS · Atom</span>
+          <div className="header-brand">
+            <span className="brand">jqfeed</span>
+            <span className="reader-meta">RSS · Atom</span>
+          </div>
         </header>
         <section className="empty-state" role="status">
           <div className="empty-mark" aria-hidden="true">j</div>
@@ -205,25 +264,46 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
       className="reader-shell"
       aria-label="Feed reader"
       onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}
+      onClickCapture={onClickCapture}
     >
       <header className="reader-header">
-        <span className="brand">jqfeed</span>
-        <span>RSS · Atom</span>
+        <div className="header-brand">
+          <span className="brand">jqfeed</span>
+          <span className="reader-meta">RSS · Atom</span>
+        </div>
+        <EntryNavigation
+          label="Top entry navigation"
+          className="reader-controls reader-controls-top"
+          currentIndex={currentIndex}
+          entryCount={entries.length}
+          onNewer={goNewer}
+          onOlder={goOlder}
+        />
       </header>
 
-      <EntryNavigation
-        label="Top entry navigation"
-        className="reader-controls reader-controls-top"
-        currentIndex={currentIndex}
-        entryCount={entries.length}
-        onNewer={goNewer}
-        onOlder={goOlder}
-      />
-
       <div className="reader-main">
-        <article className="entry-card" key={currentEntry.id} aria-live="polite">
+        {swipePreview && (
+          <div
+            className={`swipe-cue swipe-cue-${swipePreview.direction}`}
+            style={{ opacity: Math.max(0.15, swipePreview.progress) }}
+            aria-hidden="true"
+          >
+            {swipePreview.direction === "older" ? (
+              <><span>←</span> Older</>
+            ) : (
+              <>Newer <span>→</span></>
+            )}
+          </div>
+        )}
+        <article
+          className={`entry-card${swipePreview ? " is-swiping" : ""}`}
+          key={currentEntry.id}
+          aria-live="polite"
+          style={{ transform: `translate3d(${swipePreview?.offset ?? 0}px, 0, 0)` }}
+        >
           <div className="entry-byline">
             <span className="feed-name">{currentEntry.feedName}</span>
             <span className="byline-dot" aria-hidden="true" />
@@ -235,7 +315,7 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
           <a className="source-link" href={currentEntry.url} target="_blank" rel="noreferrer">
             Read at source <span aria-hidden="true">↗</span>
           </a>
-          <div className="article-panel" ref={contentPanelRef}>
+          <div className="article-panel">
             <div
               className="article-content"
               dangerouslySetInnerHTML={{ __html: currentEntry.contentHtml }}
