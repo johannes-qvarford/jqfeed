@@ -86,6 +86,18 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
   const touchOrigin = useRef<TouchOrigin | null>(null);
   const suppressClickUntil = useRef(0);
   const currentEntry = entries[currentIndex];
+  const previousEntryId = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const currentEntryId = currentEntry?.id ?? null;
+    if (
+      previousEntryId.current !== undefined &&
+      previousEntryId.current !== currentEntryId
+    ) {
+      window.scrollTo(0, 0);
+    }
+    previousEntryId.current = currentEntryId;
+  }, [currentEntry?.id]);
 
   const goTo = useCallback(
     (index: number) => {
@@ -244,6 +256,9 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
             <span className="brand">jqfeed</span>
             <span className="reader-meta">RSS · Atom</span>
           </div>
+          <span className="position-label position-label-top" aria-hidden="true">
+            0 entries
+          </span>
         </header>
         <section className="empty-state" role="status">
           <div className="empty-mark" aria-hidden="true">j</div>
@@ -253,7 +268,7 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
           </p>
         </section>
         <footer className="reader-footer">
-          <span className="position-label">0 entries</span>
+          <span className="position-label" aria-live="polite">0 entries</span>
         </footer>
       </main>
     );
@@ -274,14 +289,19 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
           <span className="brand">jqfeed</span>
           <span className="reader-meta">RSS · Atom</span>
         </div>
-        <EntryNavigation
-          label="Top entry navigation"
-          className="reader-controls reader-controls-top"
-          currentIndex={currentIndex}
-          entryCount={entries.length}
-          onNewer={goNewer}
-          onOlder={goOlder}
-        />
+        <div className="reader-header-actions">
+          <span className="position-label position-label-top" aria-hidden="true">
+            {currentIndex + 1} of {entries.length}
+          </span>
+          <EntryNavigation
+            label="Top entry navigation"
+            className="reader-controls reader-controls-top"
+            currentIndex={currentIndex}
+            entryCount={entries.length}
+            onNewer={goNewer}
+            onOlder={goOlder}
+          />
+        </div>
       </header>
 
       <div className="reader-main">

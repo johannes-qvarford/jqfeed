@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Reader } from "./reader";
 import type { NormalizedEntry } from "../lib/types";
 
@@ -24,10 +24,15 @@ const entries: NormalizedEntry[] = [
   },
 ];
 
+beforeEach(() => {
+  vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+});
+
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 function touch(x: number, y: number) {
@@ -35,6 +40,45 @@ function touch(x: number, y: number) {
 }
 
 describe("Reader", () => {
+  it("shows the current position at the top and footer and scrolls on article changes", () => {
+    const { container } = render(<Reader entries={entries} />);
+    const topPosition = container.querySelector(".reader-header .position-label");
+    const footerPosition = container.querySelector(".reader-footer .position-label");
+
+    expect(topPosition).toHaveTextContent("1 of 2");
+    expect(footerPosition).toHaveTextContent("1 of 2");
+    expect(window.scrollTo).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Top entry navigation" }))
+        .getByRole("button", { name: "Older entry" }),
+    );
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+    expect(topPosition).toHaveTextContent("2 of 2");
+    expect(footerPosition).toHaveTextContent("2 of 2");
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
+
+    window.history.replaceState(null, "", "/#newest");
+    fireEvent(window, new PopStateEvent("popstate"));
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    expect(topPosition).toHaveTextContent("1 of 2");
+    expect(footerPosition).toHaveTextContent("1 of 2");
+    expect(window.scrollTo).toHaveBeenCalledTimes(2);
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+    expect(window.scrollTo).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not scroll for a navigation attempt that cannot change the article", () => {
+    render(<Reader entries={entries} />);
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
+    expect(window.scrollTo).not.toHaveBeenCalled();
+  });
+
   it("uses left and right keyboard shortcuts to match the navigation controls", () => {
     render(<Reader entries={entries} />);
     const topNavigationElement = screen.getByRole("navigation", {
@@ -42,7 +86,7 @@ describe("Reader", () => {
     });
     const topNavigation = within(topNavigationElement);
 
-    expect(topNavigationElement.parentElement?.tagName).toBe("HEADER");
+    expect(topNavigationElement.closest("header")?.tagName).toBe("HEADER");
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
     expect(topNavigation.getByRole("button", { name: "Newer entry" })).toBeDisabled();
     expect(topNavigation.getByRole("button", { name: "Newer entry" })).toHaveAttribute(
@@ -101,11 +145,12 @@ describe("Reader", () => {
     fireEvent.touchEnd(reader, { changedTouches: touch(170, 30) });
     expect(screen.getByRole("heading", { name: "Newest story" })).toBeInTheDocument();
 
-    const positionLabel = screen.getByText("1 of 2");
+    const positionLabel = document.querySelector(".reader-footer .position-label")!;
     fireEvent.touchStart(positionLabel, { touches: touch(220, 520) });
     fireEvent.touchMove(positionLabel, { touches: touch(190, 520) });
     fireEvent.touchEnd(reader, { changedTouches: touch(130, 520) });
     expect(screen.getByRole("heading", { name: "Older story" })).toBeInTheDocument();
+    expect(window.scrollTo).toHaveBeenCalledTimes(3);
   });
 
   it("leaves vertical movement for page scrolling and ignores slow swipes", () => {
@@ -173,8 +218,14 @@ describe("Reader", () => {
   });
 
   it("renders an empty state when there are no configured feeds", () => {
-    render(<Reader entries={[]} />);
+    const { container } = render(<Reader entries={[]} />);
     expect(screen.getByRole("status")).toHaveTextContent("No entries yet");
     expect(screen.getByText("src/lib/feeds.ts")).toBeInTheDocument();
+    expect(container.querySelector(".reader-header .position-label")).toHaveTextContent(
+      "0 entries",
+    );
+    expect(container.querySelector(".reader-footer .position-label")).toHaveTextContent(
+      "0 entries",
+    );
   });
 });
