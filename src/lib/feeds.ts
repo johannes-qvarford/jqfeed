@@ -52,6 +52,30 @@ export const feeds: FeedDefinition[] = [
     transform: articleAwareTransformer(),
   },
   {
+    id: "meeting-cpp",
+    name: "Meeting C++ Blog",
+    url: "https://meetingcpp.com/blogen.xml",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "old-new-thing",
+    name: "The Old New Thing",
+    url: "https://devblogs.microsoft.com/oldnewthing/feed/",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "cpp-team-blog",
+    name: "C++ Team Blog",
+    url: "https://devblogs.microsoft.com/cppblog/feed/",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "braden-plusplus",
+    name: "Braden++",
+    url: "https://blog.ganets.ky/feed.xml",
+    transform: articleAwareTransformer(),
+  },
+  {
     id: "planet-mysql",
     name: "Planet MySQL",
     url: "https://planet.mysql.com/rss20.xml",
@@ -91,6 +115,12 @@ export const feeds: FeedDefinition[] = [
     id: "inside-rust",
     name: "Inside Rust",
     url: "https://blog.rust-lang.org/inside-rust/feed.xml",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "this-week-in-rust",
+    name: "This Week in Rust",
+    url: "https://this-week-in-rust.org/rss.xml",
     transform: articleAwareTransformer(),
   },
 ];
