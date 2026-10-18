@@ -58,12 +58,6 @@ export const feeds: FeedDefinition[] = [
     transform: articleAwareTransformer(),
   },
   {
-    id: "percona",
-    name: "Percona Database Performance Blog",
-    url: "https://www.percona.com/blog/feed/",
-    transform: articleAwareTransformer(),
-  },
-  {
     id: "python-insider",
     name: "Python Insider",
     url: "https://blog.python.org/rss.xml",
