@@ -255,6 +255,18 @@ a:focus-visible {
   text-underline-offset: 0.18em;
 }
 
+.article-content code,
+.empty-state code {
+  padding: 0.12em 0.38em;
+  border: 1px solid #35463a;
+  border-radius: 5px;
+  color: #c5dfc9;
+  background: #202d24;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.84em;
+  overflow-wrap: anywhere;
+}
+
 .article-content img {
   display: block;
   max-width: 100%;
@@ -282,16 +294,72 @@ a:focus-visible {
 }
 
 .article-content pre {
+  margin: 1.4rem 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
-  padding: 1rem;
-  border-radius: 10px;
+  overflow-x: auto;
+  padding: 1rem 1.15rem;
+  border: 1px solid #29392f;
+  border-radius: 12px;
   color: #d8e0d9;
   background: #0e1410;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-content pre code {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  font-size: inherit;
+  overflow-wrap: normal;
+}
+
+.article-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border: 1px solid #344238;
+  border-radius: 10px;
+  border-collapse: collapse;
+  color: #d1d9d1;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.86em;
   line-height: 1.55;
-  white-space: pre-wrap;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article-content th,
+.article-content td {
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid #2b3730;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.article-content th {
+  color: var(--ink);
+  background: #202d24;
+  font-weight: 700;
+}
+
+.article-content thead th {
+  border-bottom-color: #435448;
+}
+
+.article-content tbody tr:nth-child(even) {
+  background: rgb(255 255 255 / 2%);
+}
+
+.article-content tr:last-child td {
+  border-bottom: 0;
 }
 
 .reader-controls {
@@ -379,14 +447,6 @@ a:focus-visible {
   margin: 0;
   color: var(--muted);
   line-height: 1.7;
-}
-
-.empty-state code {
-  padding: 0.12rem 0.35rem;
-  border-radius: 4px;
-  color: #bfd8c3;
-  background: #1d2a21;
-  font-size: 0.92em;
 }
 
 @media (max-width: 560px) {
