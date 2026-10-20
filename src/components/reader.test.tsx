@@ -23,6 +23,7 @@ const entries: NormalizedEntry[] = [
     contentHtml: "<p>Older body</p>",
   },
 ];
+const generatedAt = "2026-10-20T12:34:56.789Z";
 
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
@@ -41,7 +42,7 @@ function touch(x: number, y: number) {
 
 describe("Reader", () => {
   it("shows the current position at the top and footer and scrolls on article changes", () => {
-    const { container } = render(<Reader entries={entries} />);
+    const { container } = render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const topPosition = container.querySelector(".reader-header .position-label");
     const footerPosition = container.querySelector(".reader-footer .position-label");
 
@@ -71,7 +72,7 @@ describe("Reader", () => {
   });
 
   it("does not scroll for a navigation attempt that cannot change the article", () => {
-    render(<Reader entries={entries} />);
+    render(<Reader entries={entries} lastUpdated={generatedAt} />);
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
 
@@ -80,7 +81,7 @@ describe("Reader", () => {
   });
 
   it("uses left and right keyboard shortcuts to match the navigation controls", () => {
-    render(<Reader entries={entries} />);
+    render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const topNavigationElement = screen.getByRole("navigation", {
       name: "Top entry navigation",
     });
@@ -112,7 +113,7 @@ describe("Reader", () => {
   });
 
   it("shows swipe feedback before the navigation threshold and returns on a short drag", () => {
-    const { container } = render(<Reader entries={entries} />);
+    const { container } = render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const articleContent = screen.getByText("Newest body");
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
@@ -130,7 +131,7 @@ describe("Reader", () => {
   });
 
   it("uses left for older and right for newer from different reader areas", () => {
-    render(<Reader entries={entries} />);
+    render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
     const brand = screen.getByText("jqfeed");
     const articleBody = screen.getByText("Newest body");
@@ -156,7 +157,7 @@ describe("Reader", () => {
   it("leaves vertical movement for page scrolling and ignores slow swipes", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-10-17T12:00:00Z"));
-    render(<Reader entries={entries} />);
+    render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
     fireEvent.touchStart(reader, { touches: touch(220, 260) });
@@ -177,7 +178,7 @@ describe("Reader", () => {
   });
 
   it("clears swipe feedback when a touch is canceled", () => {
-    const { container } = render(<Reader entries={entries} />);
+    const { container } = render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
     fireEvent.touchStart(reader, { touches: touch(220, 260) });
@@ -190,7 +191,7 @@ describe("Reader", () => {
   });
 
   it("respects entry bounds and suppresses the click after a completed swipe", () => {
-    render(<Reader entries={entries} />);
+    render(<Reader entries={entries} lastUpdated={generatedAt} />);
     const reader = screen.getByRole("main", { name: "Feed reader" });
 
     fireEvent.touchStart(reader, { touches: touch(220, 260) });
@@ -218,7 +219,7 @@ describe("Reader", () => {
   });
 
   it("renders an empty state when there are no configured feeds", () => {
-    const { container } = render(<Reader entries={[]} />);
+    const { container } = render(<Reader entries={[]} lastUpdated={generatedAt} />);
     expect(screen.getByRole("status")).toHaveTextContent("No entries yet");
     expect(screen.getByText("src/lib/feeds.ts")).toBeInTheDocument();
     expect(container.querySelector(".reader-header .position-label")).toHaveTextContent(
@@ -227,5 +228,32 @@ describe("Reader", () => {
     expect(container.querySelector(".reader-footer .position-label")).toHaveTextContent(
       "0 entries",
     );
+  });
+
+  it("shows the generated timestamp and a fragment-free home link in both states", () => {
+    const { unmount } = render(<Reader entries={entries} lastUpdated={generatedAt} />);
+    const populatedHeader = document.querySelector<HTMLElement>(".reader-header")!;
+    const populated = within(populatedHeader);
+    const populatedTime = populated.getByText(generatedAt);
+    const populatedHomeLink = populated.getByRole("link", { name: "jqfeed" });
+
+    expect(populatedTime.tagName).toBe("TIME");
+    expect(populatedTime).toHaveAttribute("datetime", generatedAt);
+    expect(populatedHeader).toHaveTextContent(`Last updated: ${generatedAt}`);
+    expect(populatedHomeLink).toHaveAttribute("href", "./");
+    const populatedDestination = new URL(
+      populatedHomeLink.getAttribute("href")!,
+      "https://example.com/jqfeed/#older",
+    );
+    expect(populatedDestination.pathname).toBe("/jqfeed/");
+    expect(populatedDestination.hash).toBe("");
+
+    unmount();
+    render(<Reader entries={[]} lastUpdated={null} />);
+    const emptyHeader = document.querySelector<HTMLElement>(".reader-header")!;
+    const empty = within(emptyHeader);
+
+    expect(emptyHeader).toHaveTextContent("Last updated: unavailable");
+    expect(empty.getByRole("link", { name: "jqfeed" })).toHaveAttribute("href", "./");
   });
 });

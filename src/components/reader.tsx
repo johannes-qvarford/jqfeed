@@ -80,7 +80,13 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-export function Reader({ entries }: { entries: NormalizedEntry[] }) {
+export function Reader({
+  entries,
+  lastUpdated,
+}: {
+  entries: NormalizedEntry[];
+  lastUpdated: string | null;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [swipePreview, setSwipePreview] = useState<SwipePreview | null>(null);
   const touchOrigin = useRef<TouchOrigin | null>(null);
@@ -252,13 +258,24 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
         onClickCapture={onClickCapture}
       >
         <header className="reader-header">
-          <div className="header-brand">
-            <span className="brand">jqfeed</span>
-            <span className="reader-meta">RSS · Atom</span>
+          <div className="reader-header-main">
+            <div className="header-brand">
+              <a className="brand" href="./">jqfeed</a>
+              <span className="reader-meta">RSS · Atom</span>
+            </div>
+            <span className="position-label position-label-top" aria-hidden="true">
+              0 entries
+            </span>
           </div>
-          <span className="position-label position-label-top" aria-hidden="true">
-            0 entries
-          </span>
+          <div className="reader-updated">
+            <span>
+              Last updated: {lastUpdated ? (
+                <time dateTime={lastUpdated}>{lastUpdated}</time>
+              ) : (
+                "unavailable"
+              )}
+            </span>
+          </div>
         </header>
         <section className="empty-state" role="status">
           <div className="empty-mark" aria-hidden="true">j</div>
@@ -285,22 +302,33 @@ export function Reader({ entries }: { entries: NormalizedEntry[] }) {
       onClickCapture={onClickCapture}
     >
       <header className="reader-header">
-        <div className="header-brand">
-          <span className="brand">jqfeed</span>
-          <span className="reader-meta">RSS · Atom</span>
+        <div className="reader-header-main">
+          <div className="header-brand">
+            <a className="brand" href="./">jqfeed</a>
+            <span className="reader-meta">RSS · Atom</span>
+          </div>
+          <div className="reader-header-actions">
+            <span className="position-label position-label-top" aria-hidden="true">
+              {currentIndex + 1} of {entries.length}
+            </span>
+            <EntryNavigation
+              label="Top entry navigation"
+              className="reader-controls reader-controls-top"
+              currentIndex={currentIndex}
+              entryCount={entries.length}
+              onNewer={goNewer}
+              onOlder={goOlder}
+            />
+          </div>
         </div>
-        <div className="reader-header-actions">
-          <span className="position-label position-label-top" aria-hidden="true">
-            {currentIndex + 1} of {entries.length}
+        <div className="reader-updated">
+          <span>
+            Last updated: {lastUpdated ? (
+              <time dateTime={lastUpdated}>{lastUpdated}</time>
+            ) : (
+              "unavailable"
+            )}
           </span>
-          <EntryNavigation
-            label="Top entry navigation"
-            className="reader-controls reader-controls-top"
-            currentIndex={currentIndex}
-            entryCount={entries.length}
-            onNewer={goNewer}
-            onOlder={goOlder}
-          />
         </div>
       </header>
 
