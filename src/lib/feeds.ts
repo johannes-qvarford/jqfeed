@@ -1,5 +1,6 @@
 import type { FeedDefinition, FeedItem } from "./types";
 import { readabilityTransformer } from "./article-extractor";
+import { parseMoonshotListing } from "./moonshot-feed";
 
 function preferArticlePageForShortFeedContent(item: FeedItem) {
   const feedContent =
@@ -28,99 +29,118 @@ function articleAwareTransformer() {
  */
 export const feeds: FeedDefinition[] = [
   {
+    id: "anthropic",
+    name: "Anthropic",
+    source: {
+      type: "rss",
+      url: "https://raw.githubusercontent.com/Olshansk/rss-feeds/main/feeds/feed_claude.xml",
+    },
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "moonshot-ai",
+    name: "Moonshot AI",
+    source: {
+      type: "html",
+      url: "https://www.kimi.ai/blog/",
+      parseItems: parseMoonshotListing,
+    },
+    transform: articleAwareTransformer(),
+  },
+  {
     id: "martin-fowler",
     name: "Martin Fowler",
-    url: "https://martinfowler.com/feed.atom",
+    source: { type: "rss", url: "https://martinfowler.com/feed.atom" },
     transform: articleAwareTransformer(),
   },
   {
     id: "simon-willison",
     name: "Simon Willison — longer posts",
-    url: "https://simonwillison.net/atom/entries/",
+    source: { type: "rss", url: "https://simonwillison.net/atom/entries/" },
     transform: articleAwareTransformer(),
   },
   {
     id: "inside-java",
     name: "Inside Java",
-    url: "https://inside.java/feed.xml",
+    source: { type: "rss", url: "https://inside.java/feed.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "oracle-java",
     name: "Oracle Java blog",
-    url: "https://blogs.oracle.com/java/rss",
+    source: { type: "rss", url: "https://blogs.oracle.com/java/rss" },
     transform: articleAwareTransformer(),
   },
   {
     id: "meeting-cpp",
     name: "Meeting C++ Blog",
-    url: "https://meetingcpp.com/blogen.xml",
+    source: { type: "rss", url: "https://meetingcpp.com/blogen.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "old-new-thing",
     name: "The Old New Thing",
-    url: "https://devblogs.microsoft.com/oldnewthing/feed/",
+    source: { type: "rss", url: "https://devblogs.microsoft.com/oldnewthing/feed/" },
     transform: articleAwareTransformer(),
   },
   {
     id: "cpp-team-blog",
     name: "C++ Team Blog",
-    url: "https://devblogs.microsoft.com/cppblog/feed/",
+    source: { type: "rss", url: "https://devblogs.microsoft.com/cppblog/feed/" },
     transform: articleAwareTransformer(),
   },
   {
     id: "braden-plusplus",
     name: "Braden++",
-    url: "https://blog.ganets.ky/feed.xml",
+    source: { type: "rss", url: "https://blog.ganets.ky/feed.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "planet-mysql",
     name: "Planet MySQL",
-    url: "https://planet.mysql.com/rss20.xml",
+    source: { type: "rss", url: "https://planet.mysql.com/rss20.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "python-insider",
     name: "Python Insider",
-    url: "https://blog.python.org/rss.xml",
+    source: { type: "rss", url: "https://blog.python.org/rss.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "python-peps",
     name: "Recent Python PEPs",
-    url: "https://peps.python.org/peps.rss",
+    source: { type: "rss", url: "https://peps.python.org/peps.rss" },
     transform: articleAwareTransformer(),
   },
   {
     id: "typescript",
     name: "TypeScript team blog",
-    url: "https://devblogs.microsoft.com/typescript/feed/",
+    source: { type: "rss", url: "https://devblogs.microsoft.com/typescript/feed/" },
     transform: articleAwareTransformer(),
   },
   {
     id: "effective-typescript",
     name: "Effective TypeScript",
-    url: "https://effectivetypescript.com/atom.xml",
+    source: { type: "rss", url: "https://effectivetypescript.com/atom.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "rust-blog",
     name: "Rust project blog",
-    url: "https://blog.rust-lang.org/feed.xml",
+    source: { type: "rss", url: "https://blog.rust-lang.org/feed.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "inside-rust",
     name: "Inside Rust",
-    url: "https://blog.rust-lang.org/inside-rust/feed.xml",
+    source: { type: "rss", url: "https://blog.rust-lang.org/inside-rust/feed.xml" },
     transform: articleAwareTransformer(),
   },
   {
     id: "this-week-in-rust",
     name: "This Week in Rust",
-    url: "https://this-week-in-rust.org/rss.xml",
+    source: { type: "rss", url: "https://this-week-in-rust.org/rss.xml" },
     transform: articleAwareTransformer(),
   },
 ];

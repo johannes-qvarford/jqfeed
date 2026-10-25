@@ -1,6 +1,6 @@
 # jqfeed
 
-A static Next.js reader for RSS and Atom feeds. Each build fetches the entries currently published by the configured feeds, extracts their content, and sorts them newest first. The site does not keep an archive, so an entry disappears when its feed drops it.
+A static Next.js reader for RSS and Atom feeds, with support for scraping sources that do not publish a feed. Each build fetches the entries currently published by configured sources, extracts their content, and sorts them newest first. The site does not keep an archive, so an entry disappears when its source drops it.
 
 ## Add feeds
 
@@ -14,11 +14,16 @@ export const feeds: FeedDefinition[] = [
   {
     id: "example",
     name: "Example Magazine",
-    url: "https://example.com/feed.xml",
+    source: {
+      type: "rss",
+      url: "https://example.com/feed.xml",
+    },
     transform: readabilityTransformer({ preferArticlePage: true }),
   },
 ];
 ```
+
+For sites without RSS or Atom, an HTML source parser can extract items from a listing page. Those items use the same date filtering, deduplication, transformation, and sanitization as RSS entries.
 
 For custom extraction, a transformer receives the parsed feed entry and a `fetchArticlePage(url)` helper. It returns `contentHtml` and may override the title, source URL, or publication date. The build sanitizes the returned HTML before displaying it. If article-page extraction fails but the feed entry contains content, the built-in transformer falls back to that feed content.
 

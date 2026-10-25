@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { buildEntries } from "./feed-builder";
 import { extractMainArticle, readabilityTransformer } from "./article-extractor";
 import { sanitizeEntryHtml } from "./content";
+import { parseMoonshotListing } from "./moonshot-feed";
 import type { FeedDefinition, FeedItem } from "./types";
 
 const rssXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -28,7 +29,12 @@ const rawTransformer: FeedDefinition["transform"] = (item: FeedItem) => ({
 });
 
 function feed(url = "https://example.com/feed.xml", transform = rawTransformer): FeedDefinition {
-  return { id: "example", name: "Example", url, transform };
+  return {
+    id: "example",
+    name: "Example",
+    source: { type: "rss", url },
+    transform,
+  };
 }
 
 function fetcherFor(xml: string): typeof fetch {
@@ -157,6 +163,84 @@ describe("buildEntries", () => {
       fetcher: fetcherFor(rssXml),
       now: new Date("2024-01-04T00:00:00.000Z"),
     })).rejects.toThrow(/extractor failed/);
+  });
+
+  it("scrapes recent Moonshot articles and sends them through shared extraction and sanitization", async () => {
+    const listingUrl = "https://www.kimi.ai/blog/";
+    const articleUrl = "https://www.kimi.ai/blog/kimi-current";
+    const listing = [
+      '<main><div class="cards-list">',
+      '<div class="menu-card"><a href="/blog/kimi-current" aria-label="Current research"></a>',
+      '<h4 class="card-title">Current research</h4><p class="card-date">2024-01-07</p></div>',
+      '<div class="menu-card"><a href="/blog/kimi-current" aria-label="Current research"></a>',
+      '<h4 class="card-title">Current research</h4><p class="card-date">2024-01-07</p></div>',
+      '<div class="menu-card"><a href="/blog/kimi-old" aria-label="Older research"></a>',
+      '<h4 class="card-title">Older research</h4><p class="card-date">2023-12-31</p></div>',
+      "</div></main>",
+    ].join("");
+    const article =
+      '<html><body><nav>Navigation</nav><article><h1>Current research</h1>' +
+      "<p>Moonshot describes its latest model research with substantial technical details for readers.</p>" +
+      "<p>A second paragraph expands on the architecture, training approach, and evaluation results.</p>" +
+      "<script>unsafe content</script></article></body></html>";
+    const calls: string[] = [];
+    const fetcher: typeof fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      calls.push(url);
+      if (url === listingUrl) return new Response(listing, { status: 200 });
+      if (url === articleUrl) return new Response(article, { status: 200 });
+      throw new Error("unexpected request: " + url);
+    }) as typeof fetch;
+    const moonshotFeed: FeedDefinition = {
+      id: "moonshot-ai",
+      name: "Moonshot AI",
+      source: {
+        type: "html",
+        url: listingUrl,
+        parseItems: parseMoonshotListing,
+      },
+      transform: readabilityTransformer({ preferArticlePage: true }),
+    };
+
+    const entries = await buildEntries([moonshotFeed], {
+      fetcher,
+      now: new Date("2024-01-08T00:00:00.000Z"),
+    });
+
+    expect(calls).toEqual([listingUrl, articleUrl]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0]).toMatchObject({
+      feedId: "moonshot-ai",
+      feedName: "Moonshot AI",
+      title: "Current research",
+      url: articleUrl,
+      publishedAt: "2024-01-07T00:00:00.000Z",
+    });
+    expect(entries[0].contentHtml).toContain("substantial technical details");
+    expect(entries[0].contentHtml).not.toContain("Navigation");
+    expect(entries[0].contentHtml).not.toContain("unsafe content");
+  });
+
+  it("fails the build with the Moonshot source name when its listing structure changes", async () => {
+    const moonshotFeed: FeedDefinition = {
+      id: "moonshot-ai",
+      name: "Moonshot AI",
+      source: {
+        type: "html",
+        url: "https://www.kimi.ai/blog/",
+        parseItems: parseMoonshotListing,
+      },
+      transform: readabilityTransformer({ preferArticlePage: true }),
+    };
+    const fetcher = (async () =>
+      new Response("<html><body>No article cards</body></html>", { status: 200 })) as typeof fetch;
+
+    await expect(
+      buildEntries([moonshotFeed], {
+        fetcher,
+        now: new Date("2024-01-08T00:00:00.000Z"),
+      }),
+    ).rejects.toThrow(/Feed "moonshot-ai".*no article cards/);
   });
 });
 

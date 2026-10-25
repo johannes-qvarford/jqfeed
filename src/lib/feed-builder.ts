@@ -8,6 +8,7 @@ const MAX_ENTRY_AGE_MS = 7 * 24 * 60 * 60 * 1_000;
 const USER_AGENT = "jqfeed/1.0";
 
 type Fetcher = typeof fetch;
+type FetchKind = "feed" | "html";
 
 function parseHttpUrl(value: string, label: string): URL {
   let url: URL;
@@ -22,18 +23,26 @@ function parseHttpUrl(value: string, label: string): URL {
   return url;
 }
 
-async function fetchText(url: string, fetcher: Fetcher, kind: string): Promise<{ text: string; finalUrl: string }> {
-  parseHttpUrl(url, kind);
+async function fetchText(
+  url: string,
+  fetcher: Fetcher,
+  kind: FetchKind,
+  label: string,
+): Promise<{ text: string; finalUrl: string }> {
+  parseHttpUrl(url, label);
   const response = await fetcher(url, {
     headers: {
-      accept: kind === "feed" ? "application/atom+xml, application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5" : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
+      accept:
+        kind === "feed"
+          ? "application/atom+xml, application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.5"
+          : "text/html,application/xhtml+xml;q=0.9,*/*;q=0.5",
       "user-agent": USER_AGENT,
     },
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
-    throw new Error(`${kind} request returned HTTP ${response.status} for ${url}`);
+    throw new Error(`${label} request returned HTTP ${response.status} for ${url}`);
   }
 
   return { text: await response.text(), finalUrl: response.url || url };
@@ -107,6 +116,28 @@ function normalizeEntry(
   };
 }
 
+async function loadFeedItems(
+  feed: FeedDefinition,
+  parser: Parser<Record<string, unknown>, FeedItem>,
+  fetcher: Fetcher,
+): Promise<FeedItem[]> {
+  const label =
+    feed.source.type === "rss" ? `Feed "${feed.id}"` : `Listing for feed "${feed.id}"`;
+  const { text, finalUrl } = await fetchText(
+    feed.source.url,
+    fetcher,
+    feed.source.type === "rss" ? "feed" : "html",
+    label,
+  );
+
+  if (feed.source.type === "html") {
+    return feed.source.parseItems(text, finalUrl);
+  }
+
+  const parsed = await parser.parseString(text);
+  return parsed.items ?? [];
+}
+
 export async function buildEntries(
   feeds: FeedDefinition[],
   options: { fetcher?: Fetcher; now?: Date } = {},
@@ -117,7 +148,7 @@ export async function buildEntries(
   for (const feed of feeds) {
     if (feedIds.has(feed.id)) throw new Error(`Duplicate feed id: ${feed.id}`);
     feedIds.add(feed.id);
-    parseHttpUrl(feed.url, `Feed "${feed.id}" URL`);
+    parseHttpUrl(feed.source.url, `Feed "${feed.id}" URL`);
   }
 
   const entries: NormalizedEntry[] = [];
@@ -129,11 +160,10 @@ export async function buildEntries(
 
   for (const feed of feeds) {
     try {
-      const { text: xml } = await fetchText(feed.url, fetcher, `Feed "${feed.id}"`);
-      const parsed = await parser.parseString(xml);
+      const items = await loadFeedItems(feed, parser, fetcher);
       const seen = new Set<string>();
 
-      for (const item of parsed.items ?? []) {
+      for (const item of items) {
         if (!isWithinEntryAge(item, cutoffTimestamp)) continue;
 
         const identity = feedItemIdentity(feed.id, item);
@@ -144,7 +174,12 @@ export async function buildEntries(
         try {
           const transformed = await feed.transform(item, {
             fetchArticlePage: async (url) => {
-              const page = await fetchText(url, fetcher, `Article for feed "${feed.id}"`);
+              const page = await fetchText(
+                url,
+                fetcher,
+                "html",
+                `Article for feed "${feed.id}"`,
+              );
               return { html: page.text, finalUrl: page.finalUrl };
             },
           });
@@ -158,7 +193,7 @@ export async function buildEntries(
       }
     } catch (error) {
       throw new Error(
-        `Feed "${feed.id}" (${feed.url}) failed: ${error instanceof Error ? error.message : String(error)}`,
+        `Feed "${feed.id}" (${feed.source.url}) failed: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },
       );
     }

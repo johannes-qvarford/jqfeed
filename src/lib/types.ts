@@ -32,9 +32,20 @@ export type FeedTransformer = (
   context: FeedTransformContext,
 ) => Promise<TransformedEntry> | TransformedEntry;
 
+export type FeedSource =
+  | {
+      type: "rss";
+      url: string;
+    }
+  | {
+      type: "html";
+      url: string;
+      parseItems: (html: string, pageUrl: string) => FeedItem[];
+    };
+
 export type FeedDefinition = {
   id: string;
   name: string;
-  url: string;
+  source: FeedSource;
   transform: FeedTransformer;
 };
