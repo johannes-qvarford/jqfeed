@@ -84,7 +84,25 @@ export const feeds: FeedDefinition[] = [
   {
     id: "python-insider",
     name: "Python Insider",
-    url: "https://blog.python.org/rss.xml",
+    url: "https://blog.python.org/feeds/posts/default?alt=rss",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "openai-news",
+    name: "OpenAI News",
+    url: "https://openai.com/news/rss.xml",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "intellij-idea",
+    name: "IntelliJ IDEA Blog",
+    url: "https://blog.jetbrains.com/idea/feed/",
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "gemini",
+    name: "Gemini",
+    url: "https://blog.google/products/gemini/rss/",
     transform: articleAwareTransformer(),
   },
   {
