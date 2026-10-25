@@ -108,6 +108,24 @@ export const feeds: FeedDefinition[] = [
     transform: articleAwareTransformer(),
   },
   {
+    id: "openai-news",
+    name: "OpenAI News",
+    source: { type: "rss", url: "https://openai.com/news/rss.xml" },
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "intellij-idea",
+    name: "IntelliJ IDEA Blog",
+    source: { type: "rss", url: "https://blog.jetbrains.com/idea/feed/" },
+    transform: articleAwareTransformer(),
+  },
+  {
+    id: "gemini",
+    name: "Gemini",
+    source: { type: "rss", url: "https://blog.google/products/gemini/rss/" },
+    transform: articleAwareTransformer(),
+  },
+  {
     id: "python-peps",
     name: "Recent Python PEPs",
     source: { type: "rss", url: "https://peps.python.org/peps.rss" },
