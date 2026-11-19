@@ -46,7 +46,7 @@ jobs:
       - name: Build static site and fetch feeds
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-          TOLERATE_FEED_ERRORS: ${{ github.event_name == 'schedule' && '1' || '0' }}
+          TOLERATE_FEED_ERRORS: '1'
         run: npm run build
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
