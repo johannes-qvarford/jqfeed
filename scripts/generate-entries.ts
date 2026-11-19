@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { buildEntries } from "../src/lib/feed-builder";
 import { feeds } from "../src/lib/feeds";
 
-const entries = await buildEntries(feeds);
+const entries = await buildEntries(feeds, {
+  tolerateFeedErrors: process.env.TOLERATE_FEED_ERRORS === "1",
+});
 const generatedAt = new Date().toISOString();
 const outputDirectory = resolve(process.cwd(), ".generated");
 await mkdir(outputDirectory, { recursive: true });

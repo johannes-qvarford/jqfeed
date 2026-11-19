@@ -13,7 +13,7 @@
 
 - Add or change feeds in `src/lib/feeds.ts`. Feed IDs must be stable and unique; feed URLs must use HTTP or HTTPS.
 - A feed transformer receives a parsed `FeedItem` and a `fetchArticlePage` helper, and returns `contentHtml` with optional title, source URL, and publication date overrides. Prefer the provided `readabilityTransformer` unless a feed needs custom extraction.
-- `buildEntries` keeps entries from the last seven days, deduplicates them within each feed, normalizes their metadata, sanitizes their HTML, and sorts them newest first. A feed fetch or entry transformation failure fails generation and therefore blocks deployment.
+- `buildEntries` keeps entries from the last seven days, deduplicates them within each feed, normalizes their metadata, sanitizes their HTML, and sorts them newest first. Scheduled builds log and skip feed and entry failures; other builds fail on them unless `TOLERATE_FEED_ERRORS=1` is set.
 - Keep feed content safe for display. `sanitizeEntryHtml` is the boundary before content is rendered; do not bypass it or render raw feed HTML directly in the UI.
 - The site is a static export. The home page reads `.generated/entries.json` at build time; runtime server behavior is not part of the deployment model.
 

@@ -27,7 +27,7 @@ For sites without RSS or Atom, an HTML source parser can extract items from a li
 
 For custom extraction, a transformer receives the parsed feed entry and a `fetchArticlePage(url)` helper. It returns `contentHtml` and may override the title, source URL, or publication date. The build sanitizes the returned HTML before displaying it. If article-page extraction fails but the feed entry contains content, the built-in transformer falls back to that feed content.
 
-Feed IDs should be stable and unique. Entries are deduplicated within each feed by its GUID, then link, then title and publication date. A feed or entry that cannot be fetched or transformed fails the build; GitHub Pages keeps serving the last successful deployment.
+Feed IDs should be stable and unique. Entries are deduplicated within each feed by its GUID, then link, then title and publication date. Scheduled builds log and skip feeds or entries that cannot be fetched or transformed, so the remaining entries can be published. Other builds fail on these errors. Set `TOLERATE_FEED_ERRORS=1` to enable the same behavior locally.
 
 ## Run locally
 
@@ -48,4 +48,4 @@ The development command generates the current feed data before starting Next.js.
 2. In repository **Settings → Pages**, set the publishing source to **GitHub Actions**.
 3. The workflow builds and deploys on pushes, can be run manually from the Actions tab, and refreshes daily at 04:17 Europe/Stockholm time.
 
-The workflow passes the base path reported by GitHub Pages to Next.js, so project sites and custom domains use the right path. A failed fetch or transform prevents deployment, leaving the last successful static site online. The generated output is a static export and does not need a Next.js server at runtime.
+The workflow passes the base path reported by GitHub Pages to Next.js, so project sites and custom domains use the right path. Scheduled refreshes skip unavailable content and report errors in the build log. The generated output is a static export and does not need a Next.js server at runtime.

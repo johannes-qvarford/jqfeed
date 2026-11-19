@@ -140,7 +140,7 @@ async function loadFeedItems(
 
 export async function buildEntries(
   feeds: FeedDefinition[],
-  options: { fetcher?: Fetcher; now?: Date } = {},
+  options: { fetcher?: Fetcher; now?: Date; tolerateFeedErrors?: boolean } = {},
 ): Promise<NormalizedEntry[]> {
   const cutoffTimestamp = (options.now?.getTime() ?? Date.now()) - MAX_ENTRY_AGE_MS;
   const fetcher = options.fetcher ?? fetch;
@@ -185,6 +185,10 @@ export async function buildEntries(
           });
           entries.push(normalizeEntry(feed, item, transformed, identity));
         } catch (error) {
+          if (options.tolerateFeedErrors) {
+            console.warn(`Skipping entry "${item.title ?? item.guid ?? item.link ?? "(unknown)"}" in feed "${feed.id}":`, error);
+            continue;
+          }
           throw new Error(
             `Entry "${item.title ?? item.guid ?? item.link ?? "(unknown)"}" could not be transformed: ${error instanceof Error ? error.message : String(error)}`,
             { cause: error },
@@ -192,6 +196,10 @@ export async function buildEntries(
         }
       }
     } catch (error) {
+      if (options.tolerateFeedErrors) {
+        console.warn(`Skipping feed "${feed.id}" (${feed.source.url}):`, error);
+        continue;
+      }
       throw new Error(
         `Feed "${feed.id}" (${feed.source.url}) failed: ${error instanceof Error ? error.message : String(error)}`,
         { cause: error },

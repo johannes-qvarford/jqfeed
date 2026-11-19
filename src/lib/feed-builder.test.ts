@@ -165,6 +165,31 @@ describe("buildEntries", () => {
     })).rejects.toThrow(/extractor failed/);
   });
 
+  it("continues past unavailable feeds and failed entries when error tolerance is enabled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const badFeed = { ...feed("https://example.com/unavailable"), id: "unavailable" };
+      const goodFeed = feed("https://example.com/feed.xml", (item, context) => {
+        if (item.title === "Latest item") throw new Error("HTTP 403");
+        return rawTransformer(item, context);
+      });
+      const fetcher = (async (url: string | URL | Request) =>
+        String(url).endsWith("unavailable")
+          ? new Response("Unavailable", { status: 503 })
+          : new Response(rssXml)) as typeof fetch;
+      const entries = await buildEntries([badFeed, goodFeed], {
+        fetcher,
+        now: new Date("2024-01-04T00:00:00.000Z"),
+        tolerateFeedErrors: true,
+      });
+      expect(entries.some((entry) => entry.title === "Latest item")).toBe(false);
+      expect(entries.length).toBeGreaterThan(0);
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("scrapes recent Moonshot articles and sends them through shared extraction and sanitization", async () => {
     const listingUrl = "https://www.kimi.ai/blog/";
     const articleUrl = "https://www.kimi.ai/blog/kimi-current";
