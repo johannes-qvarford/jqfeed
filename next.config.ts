@@ -6,6 +6,7 @@ const repositoryBasePath = repository && !isUserOrOrganizationSite ? `/${reposit
 const basePath = process.env.PAGES_BASE_PATH ?? repositoryBasePath;
 
 const nextConfig: NextConfig = {
+  experimental: { agentUpgrade: "security" },
   output: "export",
   trailingSlash: true,
   basePath,
